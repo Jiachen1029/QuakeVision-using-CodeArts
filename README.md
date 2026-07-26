@@ -1,4 +1,4 @@
-# Tongji_Database_Earthquake
+# QuakeVision-using-CodeArts
 
 同济大学华为码道实习项目——QuakeVision · 地震信息查询可视化平台。 项目涵盖地震数据的**结构化存储、数据导入、查询接口与基础可视化展示**等功能。
 
