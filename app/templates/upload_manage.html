@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+
+{% block title %}上传数据与日志{% endblock %}
+
+{% block content %}
+<!-- 导航标签页 -->
+<ul class="nav nav-tabs mb-4" id="uploadTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <a class="nav-link active" id="upload-tab" data-toggle="tab" href="#upload-panel" role="tab" aria-controls="upload-panel" aria-selected="true">
+            <i class="fas fa-upload"></i> 上传数据
+        </a>
+    </li>
+    <li class="nav-item" role="presentation">
+        <a class="nav-link" id="logs-tab" data-toggle="tab" href="#logs-panel" role="tab" aria-controls="logs-panel" aria-selected="false">
+            <i class="fas fa-history"></i> 上传日志
+        </a>
+    </li>
+</ul>
+
+<!-- 标签页内容 -->
+<div class="tab-content" id="uploadTabsContent">
+    <!-- 上传数据面板 -->
+    <div class="tab-pane fade show active" id="upload-panel" role="tabpanel" aria-labelledby="upload-tab">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-file-excel"></i> 上传 Excel 数据文件</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="fileInput" class="font-weight-bold">选择文件</label>
+                        <div class="custom-file">
+                            <input type="file" class="custom-file-input" id="fileInput" name="file" accept=".xlsx,.xls" required>
+                            <label class="custom-file-label" for="fileInput">选择 Excel 文件...</label>
+                        </div>
+                        <small class="form-text text-muted">支持格式：.xlsx, .xls</small>
+                    </div>
+                    
+                    <div class="alert alert-info" role="alert">
+                        <h6 class="alert-heading"><i class="fas fa-info-circle"></i> 上传要求</h6>
+                        <ul class="mb-0 small">
+                            <li>Excel 文件需包含以下列：发震时间/时刻、经度、纬度、深度、震级、位置、类型</li>
+                            <li>系统会自动检测列名，支持中英文混合</li>
+                            <li>重复的地震记录会被自动跳过</li>
+                            <li>上传成功后会在"上传日志"中记录详情</li>
+                        </ul>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary btn-lg btn-block">
+                        <i class="fas fa-cloud-upload-alt"></i> 上传文件
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 上传日志面板 -->
+    <div class="tab-pane fade" id="logs-panel" role="tabpanel" aria-labelledby="logs-tab">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-history"></i> 上传历史记录</h5>
+                    <span>共 <strong>{{ total }}</strong> 条记录</span>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                {% if total == 0 %}
+                <div class="alert alert-info m-3">
+                    还没有上传记录。去上传数据吧！
+                </div>
+                {% else %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover mb-0">
+                        <thead class="text-center">
+                            <tr>
+                                <th style="width: 80px;">序号</th>
+                                <th style="width: 100px;">操作者</th>
+                                <th style="width: 180px;">文件名</th>
+                                <th style="width: 80px;">导入记录数</th>
+                                <th style="width: 80px;">状态</th>
+                                <th style="width: 160px;">上传时间</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in logs %}
+                            <tr>
+                                <td class="text-center">{{ (pagination.page - 1) * pagination.per_page + loop.index }}</td>
+                                <td class="text-center">{{ log.user.username }}</td>
+                                <td title="{{ log.filename }}">{{ log.filename }}</td>
+                                <td class="text-center">{{ log.records_count or '-' }}</td>
+                                <td class="text-center">
+                                    {% if log.status == 'success' %}
+                                    <span class="badge badge-success">成功</span>
+                                    {% else %}
+                                    <span class="badge badge-danger">失败</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <nav class="mt-4 mb-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <form class="form-inline" method="get" action="{{ url_for('upload_manage') }}">
+                            <label class="mr-2" for="per_page">每页显示：</label>
+                            <select class="form-control form-control-sm mr-3" name="per_page" id="per_page" onchange="this.form.submit()">
+                                <option value="20" {% if request.args.get('per_page') == '20' or not request.args.get('per_page') %}selected{% endif %}>20条</option>
+                                <option value="50" {% if request.args.get('per_page') == '50' %}selected{% endif %}>50条</option>
+                                <option value="100" {% if request.args.get('per_page') == '100' %}selected{% endif %}>100条</option>
+                            </select>
+                        </form>
+
+                        <ul class="pagination mb-0">
+                            {% set args = request.args.copy() %}
+                            {% set _ = args.pop('page', None) %}
+                            
+                            <li class="page-item {% if pagination.page == 1 %}disabled{% endif %}">
+                                <a class="page-link" href="{{ url_for('upload_manage', page=1, **args) }}">首页</a>
+                            </li>
+                            {% if prev_url %}
+                            <li class="page-item"><a class="page-link" href="{{ url_for('upload_manage', page=prev_url, **args) }}">上一页</a></li>
+                            {% else %}
+                            <li class="page-item disabled"><span class="page-link">上一页</span></li>
+                            {% endif %}
+                            <li class="page-item disabled">
+                                <span class="page-link">第 {{ pagination.page }} / {{ pagination.pages }} 页</span>
+                            </li>
+                            {% if next_url %}
+                            <li class="page-item"><a class="page-link" href="{{ url_for('upload_manage', page=next_url, **args) }}">下一页</a></li>
+                            {% else %}
+                            <li class="page-item disabled"><span class="page-link">下一页</span></li>
+                            {% endif %}
+                            <li class="page-item {% if pagination.page == pagination.pages %}disabled{% endif %}">
+                                <a class="page-link" href="{{ url_for('upload_manage', page=pagination.pages, **args) }}">尾页</a>
+                            </li>
+                        </ul>
+                    </div>
+                </nav>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // 上传文件选择后更新标签
+    document.getElementById('fileInput').addEventListener('change', function(e) {
+        const label = document.querySelector('.custom-file-label');
+        const fileName = e.target.files[0] ? e.target.files[0].name : '选择 Excel 文件...';
+        label.textContent = fileName;
+    });
+
+    // Bootstrap tab 初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        // 如果有 success flash，自动切换到日志页
+        const alerts = document.querySelectorAll('.alert-info, .alert-success');
+        if (alerts.length > 0 && window.location.hash !== '#logs-panel') {
+            // 可选：上传成功后自动显示日志页
+            // document.getElementById('logs-tab').click();
+        }
+    });
+</script>
+{% endblock %}

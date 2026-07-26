@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}管理员面板{% endblock %}
+
+{% block content %}
+    <h1>管理员面板</h1>
+    
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">添加新用户</div>
+                <div class="card-body">
+                    <form action="{{ url_for('admin_add_user') }}" method="post" class="form-inline">
+                        <label class="sr-only" for="username">用户名</label>
+                        <input type="text" class="form-control mb-2 mr-sm-2" id="username" name="username" placeholder="用户名" required>
+
+                        <label class="sr-only" for="password">密码</label>
+                        <input type="password" class="form-control mb-2 mr-sm-2" id="password" name="password" placeholder="密码" required>
+
+                        <label class="sr-only" for="role">角色</label>
+                        <select class="form-control mb-2 mr-sm-2" id="role" name="role">
+                            <option value="ROLE_USER">普通用户</option>
+                            <option value="ROLE_STAFF">工作人员</option>
+                            <option value="ROLE_ADMIN">管理员</option>
+                        </select>
+
+                        <button type="submit" class="btn btn-success mb-2">添加用户</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h2>用户列表</h2>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>用户名</th>
+                <th>角色</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td>{{ user.id }}</td>
+                <td>{{ user.username }}</td>
+                <td>{{ user.role }}</td>
+                <td>
+                    {% if user.id != current_user.id %}
+                    <form action="{{ url_for('admin_delete_user', id=user.id) }}" method="post" onsubmit="return confirm('确定要删除用户 {{ user.username }} 吗？');" style="display: inline;">
+                        <button type="submit" class="btn btn-danger btn-sm">删除</button>
+                    </form>
+                    {% else %}
+                    <span class="text-muted">当前用户</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

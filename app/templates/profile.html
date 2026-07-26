@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}个人中心{% endblock %}
+
+{% block content %}
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <h1 class="mb-4">个人中心</h1>
+            <div class="card mb-4">
+                <div class="card-header">用户信息</div>
+                <div class="card-body">
+                    <p><strong>用户名:</strong> {{ current_user.username }}</p>
+                    <p><strong>角色:</strong> {{ current_user.role }}</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">修改密码</div>
+                <div class="card-body">
+                    <form action="" method="post">
+                        <div class="form-group">
+                            <label for="old_password">原密码</label>
+                            <input type="password" class="form-control" id="old_password" name="old_password" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="new_password">新密码</label>
+                            <input type="password" class="form-control" id="new_password" name="new_password" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="confirm_password">确认新密码</label>
+                            <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">修改密码</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

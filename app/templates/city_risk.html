@@ -1,0 +1,359 @@
+{% extends "base.html" %}
+
+{% block title %}城市地震风险评估{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h1>城市地震风险评估</h1>
+        <p class="text-muted">输入城市名称，评估其周边范围内的地震风险与安全评分。</p>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-md-8">
+        <div class="input-group">
+            <input type="text" id="cityInput" class="form-control" placeholder="请输入城市名称" onkeypress="handleEnter(event)">
+            <div class="input-group-append">
+                <button class="btn btn-primary" type="button" onclick="searchCity()" id="searchBtn">
+                    <i class="fas fa-search"></i> 搜索与评估
+                </button>
+            </div>
+        </div>
+        <div id="loadingSpinner" class="text-center mt-2" style="display: none;">
+            <div class="spinner-border text-primary" role="status">
+                <span class="sr-only">Loading...</span>
+            </div>
+            <span class="ml-2 text-muted">正在搜索城市并计算风险...</span>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body p-0">
+                <div id="map" style="height: 500px; width: 100%;"></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card mb-3">
+            <div class="card-header bg-info text-white">
+                风险评估报告
+            </div>
+            <div class="card-body" id="reportPanel" style="display: none;">
+                <h3 class="text-center mb-4" id="cityName">城市名称</h3>
+                
+                <div class="text-center mb-4">
+                    <h1 class="display-4" id="safetyScore">-</h1>
+                    <p class="text-muted">安全评分 (1-10)</p>
+                </div>
+
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-circle text-danger"></i> 50km内地震</span>
+                        <span class="badge badge-danger badge-pill" id="eqCount50">-</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-circle text-warning"></i> 100km内地震</span>
+                        <span class="badge badge-warning badge-pill" id="eqCount100">-</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-circle text-info"></i> 150km内地震</span>
+                        <span class="badge badge-info badge-pill" id="eqCount150">-</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <strong>总地震数</strong>
+                        <span class="badge badge-primary badge-pill" id="eqCountTotal">-</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <strong>历史最大震级</strong>
+                        <span class="badge badge-pill" id="maxMag">-</span>
+                    </li>
+                </ul>
+            </div>
+            <div class="card-body text-center text-muted" id="emptyReport">
+                请先搜索城市以获取报告
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 评分说明卡片 -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="fas fa-info-circle"></i> 风险评分说明</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <h6 class="text-primary"><i class="fas fa-calculator"></i> 计算方式</h6>
+                        <p class="small mb-2">评分采用多因素模型，基础分为10分，根据以下因素进行扣分：</p>
+                        <ul class="small mb-0">
+                            <li><strong>地震次数</strong>：使用对数函数处理次数</li>
+                            <li><strong>震级累积</strong>：所有地震震级的平方和</li>
+                            <li><strong>最大震级</strong>：大震指数惩罚影响更大</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-4">
+                        <h6 class="text-warning"><i class="fas fa-layer-group"></i> 距离权重</h6>
+                        <div class="mb-2">
+                            <span class="badge badge-danger">50km内</span>
+                            <span class="text-muted small">权重最高 (1.0)</span>
+                            <p class="small mb-1">次数×0.8 + 震级累积×0.6 + 最大震级×0.5</p>
+                        </div>
+                        <div class="mb-2">
+                            <span class="badge badge-warning">100km内</span>
+                            <span class="text-muted small">中等权重 (0.5)</span>
+                            <p class="small mb-1">次数×0.5 + 震级累积×0.4 + 最大震级×0.3</p>
+                        </div>
+                        <div class="mb-2">
+                            <span class="badge badge-info">150km内</span>
+                            <span class="text-muted small">较低权重 (0.2)</span>
+                            <p class="small mb-1">次数×0.3 + 震级累积×0.2 + 最大震级×0.15</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <h6 class="text-success"><i class="fas fa-chart-line"></i> 评分解读</h6>
+                        <div class="mb-2">
+                            <span class="badge badge-success">8-10分</span>
+                            <span class="text-success small"><strong>低风险区</strong></span>
+                            <p class="small mb-1">历史地震活动较少，震级较小</p>
+                        </div>
+                        <div class="mb-2">
+                            <span class="badge badge-warning">5-7分</span>
+                            <span class="text-warning small"><strong>中风险区</strong></span>
+                            <p class="small mb-1">有一定地震活动，需保持警惕</p>
+                        </div>
+                        <div class="mb-2">
+                            <span class="badge badge-danger">1-4分</span>
+                            <span class="text-danger small"><strong>高风险区</strong></span>
+                            <p class="small mb-1">地震活动频繁或曾发生大震</p>
+                        </div>
+                    </div>
+                </div>
+                <hr class="my-3">
+                <p class="text-muted small mb-0">
+                    <i class="fas fa-exclamation-triangle text-warning"></i> 
+                    <strong>重要提示：</strong>本评分基于历史地震数据统计分析，仅供参考。地震预测极其复杂，历史低风险区域不代表未来无震。请关注官方地震预警信息，做好防震准备。
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+crossorigin=""/>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+crossorigin=""></script>
+
+<script>
+    var map;
+    var cityMarker;
+    var rangeCircle;
+    var eqMarkers = [];
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize map
+        map = L.map('map', {attributionControl: false}).setView([35.8617, 104.1954], 4);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19
+        }).addTo(map);
+    });
+
+    function handleEnter(e) {
+        if (e.key === 'Enter') {
+            searchCity();
+        }
+    }
+
+    function toggleLoading(isLoading) {
+        const spinner = document.getElementById('loadingSpinner');
+        const btn = document.getElementById('searchBtn');
+        const input = document.getElementById('cityInput');
+        
+        if (isLoading) {
+            spinner.style.display = 'block';
+            btn.disabled = true;
+            input.disabled = true;
+        } else {
+            spinner.style.display = 'none';
+            btn.disabled = false;
+            input.disabled = false;
+            input.focus();
+        }
+    }
+
+    function searchCity() {
+        var city = document.getElementById('cityInput').value.trim();
+        if (!city) {
+            alert('请输入城市名称');
+            return;
+        }
+
+        toggleLoading(true);
+
+        // Use backend API for geocoding (with database cache)
+        fetch(`/api/search_city?q=${encodeURIComponent(city)}`)
+            .then(response => {
+                if (!response.ok) {
+                    if (response.status === 404) throw new Error('未找到该城市，请尝试使用英文名称或更详细的地址');
+                    throw new Error('搜索服务暂时不可用');
+                }
+                return response.json();
+            })
+            .then(data => {
+                updateMap(data.lat, data.lon, data.display_name);
+                fetchRiskData(data.lat, data.lon, data.display_name);
+            })
+            .catch(error => {
+                console.error('Search error:', error);
+                alert(error.message);
+                toggleLoading(false);
+            });
+    }
+
+    var circle50, circle100, circle150; // 三个同心圆
+
+    function updateMap(lat, lon, name) {
+        // Clear previous layers
+        if (cityMarker) map.removeLayer(cityMarker);
+        if (circle50) map.removeLayer(circle50);
+        if (circle100) map.removeLayer(circle100);
+        if (circle150) map.removeLayer(circle150);
+        eqMarkers.forEach(m => map.removeLayer(m));
+        eqMarkers = [];
+
+        // Set view
+        map.setView([lat, lon], 8);
+
+        // Add city marker
+        cityMarker = L.marker([lat, lon]).addTo(map)
+            .bindPopup(`<b>${name}</b><br>中心点`).openPopup();
+
+        // 添加三个同心圆（虚线）
+        // 50km圆 - 红色
+        circle50 = L.circle([lat, lon], {
+            color: '#dc3545',
+            fillColor: '#dc3545',
+            fillOpacity: 0.08,
+            radius: 50000,
+            dashArray: '10, 10',
+            weight: 2
+        }).addTo(map);
+
+        // 100km圆 - 黄色
+        circle100 = L.circle([lat, lon], {
+            color: '#ffc107',
+            fillColor: '#ffc107',
+            fillOpacity: 0.05,
+            radius: 100000,
+            dashArray: '10, 10',
+            weight: 2
+        }).addTo(map);
+
+        // 150km圆 - 蓝色
+        circle150 = L.circle([lat, lon], {
+            color: '#17a2b8',
+            fillColor: '#17a2b8',
+            fillOpacity: 0.03,
+            radius: 150000,
+            dashArray: '10, 10',
+            weight: 2
+        }).addTo(map);
+    }
+
+    function fetchRiskData(lat, lon, name) {
+        fetch(`/api/nearby_earthquakes?lat=${lat}&lon=${lon}`)
+            .then(response => response.json())
+            .then(data => {
+                toggleLoading(false);
+                // Update Report Panel
+                document.getElementById('emptyReport').style.display = 'none';
+                document.getElementById('reportPanel').style.display = 'block';
+                
+                document.getElementById('cityName').innerText = name;
+                
+                // 更新分层统计数据
+                document.getElementById('eqCount50').innerText = data.stats.count_50;
+                document.getElementById('eqCount100').innerText = data.stats.count_100;
+                document.getElementById('eqCount150').innerText = data.stats.count_150;
+                document.getElementById('eqCountTotal').innerText = data.stats.count_total;
+                
+                // 更新最大震级
+                var maxMagElem = document.getElementById('maxMag');
+                maxMagElem.innerText = data.stats.max_mag_total > 0 ? 'M' + data.stats.max_mag_total : '无';
+                
+                // Dynamic color for Max Magnitude badge
+                maxMagElem.className = 'badge badge-pill';
+                maxMagElem.style.backgroundColor = '';
+                maxMagElem.style.color = 'white';
+
+                if (data.stats.max_mag_total === 0) {
+                    maxMagElem.classList.add('badge-success');
+                } else {
+                    let color;
+                    if (data.stats.max_mag_total >= 7) color = '#800026';
+                    else if (data.stats.max_mag_total >= 6) color = '#BD0026';
+                    else if (data.stats.max_mag_total >= 5) color = '#E31A1C';
+                    else if (data.stats.max_mag_total >= 4) color = '#FC4E2A';
+                    else if (data.stats.max_mag_total >= 3) color = '#FD8D3C';
+                    else color = '#ffcc00';
+                    
+                    maxMagElem.style.backgroundColor = color;
+                    if (data.stats.max_mag_total < 4) maxMagElem.style.color = '#212529';
+                }
+
+                // 更新安全评分
+                var scoreElem = document.getElementById('safetyScore');
+                scoreElem.innerText = data.stats.score;
+                
+                if (data.stats.score >= 8) scoreElem.className = 'display-4 text-success';
+                else if (data.stats.score >= 5) scoreElem.className = 'display-4 text-warning';
+                else scoreElem.className = 'display-4 text-danger';
+
+                // 添加地震标记（与地震分布地图保持一致：颜色和边框都根据震级）
+                data.earthquakes.forEach(eq => {
+                    // 根据震级设置颜色（与地震分布地图一致）
+                    let color = '#ffcc00'; // Yellow for small
+                    if (eq.magnitude >= 7) color = '#800026'; // Dark Red
+                    else if (eq.magnitude >= 6) color = '#BD0026';
+                    else if (eq.magnitude >= 5) color = '#E31A1C';
+                    else if (eq.magnitude >= 4) color = '#FC4E2A';
+                    else if (eq.magnitude >= 3) color = '#FD8D3C';
+                    
+                    var marker = L.circleMarker([eq.latitude, eq.longitude], {
+                        radius: eq.magnitude * 2,
+                        fillColor: color,
+                        color: "#000",
+                        weight: 1,
+                        opacity: 1,
+                        fillOpacity: 0.8
+                    }).bindPopup(`
+                        <strong>M${eq.magnitude}</strong><br>
+                        ${eq.time}<br>
+                        距离: ${eq.distance} km<br>
+                        <small>${eq.distance <= 50 ? '50km内' : eq.distance <= 100 ? '100km内' : '150km内'}</small>
+                    `);
+                    
+                    marker.addTo(map);
+                    eqMarkers.push(marker);
+                });
+            })
+            .catch(error => {
+                console.error('Risk data error:', error);
+                alert('获取风险数据失败');
+                toggleLoading(false);
+            });
+    }
+</script>
+{% endblock %}

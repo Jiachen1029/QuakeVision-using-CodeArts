@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}编辑数据{% endblock %}
+
+{% block content %}
+    <h1>编辑地震数据</h1>
+    <form action="" method="post">
+        <div class="form-row">
+            <div class="form-group col-md-6">
+                <label for="time">发震时间</label>
+                <input type="text" class="form-control datetimepicker" id="time" name="time" value="{{ earthquake.time.strftime('%Y-%m-%d %H:%M:%S') }}" required>
+            </div>
+            <div class="form-group col-md-6">
+                <label for="magnitude">震级 (M)</label>
+                <input type="number" step="0.1" class="form-control" id="magnitude" name="magnitude" value="{{ earthquake.magnitude }}" required>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group col-md-6">
+                <label for="latitude">纬度 (°)</label>
+                <input type="number" step="0.01" class="form-control" id="latitude" name="latitude" value="{{ earthquake.latitude }}" required>
+            </div>
+            <div class="form-group col-md-6">
+                <label for="longitude">经度 (°)</label>
+                <input type="number" step="0.01" class="form-control" id="longitude" name="longitude" value="{{ earthquake.longitude }}" required>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group col-md-6">
+                <label for="depth">震源深度 (Km)</label>
+                <input type="number" class="form-control" id="depth" name="depth" value="{{ earthquake.depth }}" required>
+            </div>
+            <div class="form-group col-md-6">
+                <label for="event_type">事件类型</label>
+                <input type="text" class="form-control" id="event_type" name="event_type" value="{{ earthquake.event_type }}">
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="location">震中位置</label>
+            <input type="text" class="form-control" id="location" name="location" value="{{ earthquake.location }}" required>
+        </div>
+        <button type="submit" class="btn btn-primary">保存修改</button>
+        <a href="{{ url_for('index') }}" class="btn btn-secondary">取消</a>
+    </form>
+{% endblock %}
